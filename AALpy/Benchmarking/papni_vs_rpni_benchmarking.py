@@ -1,0 +1,247 @@
+import pickle
+from collections import defaultdict
+from random import shuffle
+
+from aalpy import run_RPNI, run_PAPNI, AutomatonSUL
+from aalpy.utils import convert_i_o_traces_for_RPNI, generate_input_output_data_from_vpa, is_balanced
+from aalpy.utils.BenchmarkVpaModels import get_all_VPAs
+from statistics import mean, stdev
+
+# Load positive and negativ sequances for all models
+all_data = dict()
+with open('papni_sequences.pickle', 'rb') as handle:
+    all_data = pickle.load(handle)
+
+
+def calculate_f1_score(precision, recall):
+    if precision + recall == 0:
+        return 0
+    return 2 * (precision * recall) / (precision + recall)
+
+
+def calculate_precision_recall_f1(true_positives, false_positives, false_negatives):
+    precision = true_positives / (true_positives + false_positives) if (true_positives + false_positives) > 0 else 0
+    recall = true_positives / (true_positives + false_negatives) if (true_positives + false_negatives) > 0 else 0
+    f1 = calculate_f1_score(precision, recall)
+
+    return precision, recall, f1
+
+
+def compare_rpni_and_papni(test_data, rpni_model, papni_model):
+    def evaluate_model(learned_model, test_data):
+        true_positives = 0
+        false_positives = 0
+        false_negatives = 0
+
+        for input_seq, correct_output in test_data:
+            learned_model.reset_to_initial()
+            learned_output = learned_model.execute_sequence(learned_model.initial_state, input_seq)[-1]
+
+            if learned_output and correct_output:
+                true_positives += 1
+            elif learned_output and not correct_output:
+                false_positives += 1
+            elif not learned_output and correct_output:
+                false_negatives += 1
+
+        precision = true_positives / (true_positives + false_positives) if (true_positives + false_positives) > 0 else 0
+        recall = true_positives / (true_positives + false_negatives) if (true_positives + false_negatives) > 0 else 0
+        f1 = calculate_f1_score(precision, recall)
+
+        return precision, recall, f1
+
+    rpni_error = evaluate_model(rpni_model, test_data)
+    papni_error = evaluate_model(papni_model, test_data)
+
+    # print(f'RPNI size {rpni_model.size} vs {papni_model.size} PAPNI size')
+    # print(f'RPNI   precision, recall, f1: {rpni_error}')
+    # print(f'PAPNI  precision, recall, f1: {papni_error}')
+
+    return [rpni_model.size, papni_model.size, rpni_error, papni_error]
+
+
+# run KV for VPDA learning and record all sequences
+# these sequences should cover the whole characterizing set required to learn 1-SEVPA
+def get_sequences_from_active_sevpa(model, verbose=False):
+    from aalpy import SUL, run_KV, RandomWordEqOracle, SevpaAlphabet
+
+    class CustomSUL(SUL):
+        def __init__(self, automatonSUL):
+            super(CustomSUL, self).__init__()
+            self.sul = automatonSUL
+            self.sequences = []
+
+        def pre(self):
+            self.tc = []
+            self.sul.pre()
+
+        def post(self):
+            self.sequences.append(self.tc)
+            self.sul.post()
+
+        def step(self, letter):
+            output = self.sul.step(letter)
+            if letter is not None:
+                self.tc.append((letter, output))
+            return output
+
+    vpa_alphabet = model.get_input_alphabet()
+    alphabet = SevpaAlphabet(vpa_alphabet.internal_alphabet, vpa_alphabet.call_alphabet, vpa_alphabet.return_alphabet)
+    sul = AutomatonSUL(model)
+    sul = CustomSUL(sul)
+    eq_oracle = RandomWordEqOracle(alphabet.get_merged_alphabet(), sul, num_walks=50000, min_walk_len=6,
+                                   max_walk_len=30, reset_after_cex=True)
+    # eq_oracle = BreadthFirstExplorationEqOracle(vpa_alphabet.get_merged_alphabet(), sul, 7)
+    lm = run_KV(alphabet, sul, eq_oracle, automaton_type='vpa', print_level=3 if verbose else 0)
+
+    return convert_i_o_traces_for_RPNI(sul.sequences), lm
+
+
+def split_data_to_learning_and_testing(data, learning_to_test_ratio=0.5):
+    total_number_positive = len([x for x in data if x[1]])
+    total_number_negative = len(data) - total_number_positive
+
+    num_learning_positive_seq = total_number_positive * learning_to_test_ratio
+    num_learning_negative_seq = total_number_negative * learning_to_test_ratio
+
+    # sorted(data, key=lambda x: len(x[0]))
+    shuffle(data)
+
+    learning_sequences, test_sequences = [], []
+
+    l_pos, l_neg = 0, 0
+    for seq, label in data:
+        if label and l_pos <= num_learning_positive_seq:
+            learning_sequences.append((seq, label))
+            l_pos += 1
+        elif not label and l_neg <= num_learning_negative_seq:
+            learning_sequences.append((seq, label))
+            l_neg += 1
+        else:
+            test_sequences.append((seq, label))
+
+    return learning_sequences, test_sequences
+
+
+def run_experiment(experiment_id,
+                   ground_truth_model,
+                   num_of_learning_seq,
+                   max_learning_seq_len,
+                   random_data_generation=True,
+                   learning_to_test_ratio=0.5):
+    if random_data_generation:
+        data = generate_input_output_data_from_vpa(ground_truth_model,
+                                                   num_sequences=num_of_learning_seq,
+                                                   max_seq_len=max_learning_seq_len,
+                                                )
+    else:
+        all_generated_data = all_data[experiment_id]
+
+        # sorted(all_generated_data, key=lambda x: len(x))
+        shuffle(all_generated_data)
+
+        positive_seq = [x for x in all_generated_data if x[1]]
+        negative_seq = [x for x in all_generated_data if not x[1]]
+
+        data = []
+        data += positive_seq[:5000]
+        data += negative_seq[:10000 - len(data)]
+
+    vpa_alphabet = ground_truth_model.get_input_alphabet()
+
+    learning_data, test_data = split_data_to_learning_and_testing(data, learning_to_test_ratio=learning_to_test_ratio)
+
+    num_positive_learning = len([x for x in learning_data if x[1]])
+    learning_set_size = (num_positive_learning, len(learning_data) - num_positive_learning)
+
+    num_positive_test = len([x for x in test_data if x[1]])
+    num_test_size = (num_positive_test, len(test_data) - num_positive_test)
+
+    rpni_model = run_RPNI(learning_data, 'dfa', print_info=False, input_completeness='sink_state')
+
+    papni_model = run_PAPNI(learning_data, vpa_alphabet, print_info=False)
+
+    comparison_results = compare_rpni_and_papni(test_data, rpni_model, papni_model)
+
+    comparison_results = comparison_results + [learning_set_size, num_test_size]
+    return comparison_results
+
+def run_experiments_multiple_times(test_models, num_times, learning_to_test_ratio=0.5):
+    all_results = defaultdict(list)
+    print(f'Running experiment on each model {num_times} times.')
+
+    for idx, gt in enumerate(test_models):
+        print('Experiment: ', idx)
+        for _ in range(num_times):
+            r = run_experiment(idx, gt, num_of_learning_seq=10000, max_learning_seq_len=50,
+                               random_data_generation=False, learning_to_test_ratio=learning_to_test_ratio)
+
+            all_results[idx].append(r)
+
+        rpni_results = [r[2] for r in all_results[idx]]
+        papni_results = [r[3] for r in all_results[idx]]
+
+        rpni_f1 = [r[2] for r in rpni_results]
+        papni_f1 = [r[2] for r in papni_results]
+
+        print(f'RPNI  (F1) : min {min(rpni_f1)}, max {max(rpni_f1)}, mean {mean(rpni_f1)}, stddev {stdev(rpni_f1)}')
+        print(f'PAPNI (F1) : min {min(papni_f1)}, max {max(papni_f1)}, mean {mean(papni_f1)}, stddev {stdev(papni_f1)}')
+        print('----------------------------------------------------------------')
+
+    import pickle
+    with open('papni_rpni_eval_results.pickle', 'wb') as handle:
+        pickle.dump(all_results, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+def test_papni_based_on_sevpa_dataset():
+    all_models = get_all_VPAs()
+
+
+    for idx, gt in enumerate(all_models):
+        sevpa_papni_mismatch, papni_error, sevpa_error = 0, 0, 0
+
+        input_al = gt.get_input_alphabet()
+
+        sevpa_dataset, sevpa_model = get_sequences_from_active_sevpa(gt)
+        sevpa_dataset_set = set(sevpa_dataset)
+
+        papni_model = run_PAPNI(sevpa_dataset, input_al)
+
+        balanced_counter = 0
+        not_in_learning = 0
+        in_learning = 0
+
+        for seq, label in all_data[idx]:
+
+            if is_balanced(seq, input_al):
+                balanced_counter += 1
+
+                if (seq, label) not in sevpa_dataset_set:
+                    not_in_learning += 1
+                else:
+                    in_learning += 1
+
+            sevpa_model.reset_to_initial()
+            sevpa_output = sevpa_model.execute_sequence(sevpa_model.initial_state, seq)
+
+            papni_model.reset_to_initial()
+            papni_output = papni_model.execute_sequence(papni_model.initial_state, seq)
+
+            if sevpa_output != papni_output:
+                sevpa_papni_mismatch += 1
+            if papni_output[-1] != label:
+                papni_error += 1
+            if sevpa_output[-1] != label:
+                sevpa_error += 1
+
+        print('--------------------------------------')
+        print(f'Model Index {idx}; # well-matched {balanced_counter}, # unique tests {not_in_learning}')
+        print(f'Papni Error {papni_error}')
+        print(f'Sevpa Error {sevpa_error}')
+        print(f'Mismatch {sevpa_papni_mismatch}')
+
+        assert in_learning + not_in_learning == balanced_counter
+
+#test_papni_based_on_sevpa_dataset()
+
+all_models = get_all_VPAs()
+run_experiments_multiple_times(all_models, num_times=20, learning_to_test_ratio=0.5)
