@@ -1,0 +1,17 @@
+﻿Case,Budget,Model,Group Mean Error,Condition Best Error,Relative Error,Condition Best
+first_grid,20000,DeepSeek V4 Flash,0.28608495,0.27692925,1.03306151,False
+first_grid,20000,GPT-4o,0.36629336,0.27692925,1.32269651,False
+first_grid,20000,Gemini 3.1 Flash Lite,0.41252616,0.27692925,1.48964458,False
+first_grid,20000,Qwen3.5 Flash,0.27692925,0.27692925,1.00000000,True
+first_grid,50000,DeepSeek V4 Flash,0.08981391,0.06869238,1.30747996,False
+first_grid,50000,GPT-4o,0.09500522,0.06869238,1.38305327,False
+first_grid,50000,Gemini 3.1 Flash Lite,0.08846882,0.06869238,1.28789857,False
+first_grid,50000,Qwen3.5 Flash,0.06869238,0.06869238,1.00000000,True
+first_grid,80000,DeepSeek V4 Flash,0.06913190,0.05031765,1.37390965,False
+first_grid,80000,GPT-4o,0.05031765,0.05031765,1.00000000,True
+first_grid,80000,Gemini 3.1 Flash Lite,0.09819755,0.05031765,1.95155288,False
+first_grid,80000,Qwen3.5 Flash,0.10084605,0.05031765,2.00418847,False
+first_grid,110000,DeepSeek V4 Flash,0.07843670,0.04993873,1.57065879,False
+first_grid,110000,GPT-4o,0.07701673,0.04993873,1.54222444,False
+first_grid,110000,Gemini 3.1 Flash Lite,0.04993873,0.04993873,1.00000000,True
+first_grid,110000,Qwen3.5 Flash,0.08022172,0.04993873,1.60640296,False

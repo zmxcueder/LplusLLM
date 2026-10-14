@@ -1,0 +1,17 @@
+﻿Case,Budget,Model,Group Mean Error,Condition Best Error,Relative Error,Condition Best
+bluetooth,20000,DeepSeek V4 Flash,0.06310005,0.04151203,1.52004226,False
+bluetooth,20000,GPT-4o,0.04151203,0.04151203,1.00000000,True
+bluetooth,20000,Gemini 3.1 Flash Lite,0.06865582,0.04151203,1.65387763,False
+bluetooth,20000,Qwen3.5 Flash,0.05663128,0.04151203,1.36421357,False
+bluetooth,50000,DeepSeek V4 Flash,0.03780110,0.03332149,1.13443613,False
+bluetooth,50000,GPT-4o,0.03359488,0.03332149,1.00820456,False
+bluetooth,50000,Gemini 3.1 Flash Lite,0.03340959,0.03332149,1.00264403,False
+bluetooth,50000,Qwen3.5 Flash,0.03332149,0.03332149,1.00000000,True
+bluetooth,80000,DeepSeek V4 Flash,0.03521251,0.03521251,1.00000000,True
+bluetooth,80000,GPT-4o,0.03626433,0.03521251,1.02987060,False
+bluetooth,80000,Gemini 3.1 Flash Lite,0.04069672,0.03521251,1.15574618,False
+bluetooth,80000,Qwen3.5 Flash,0.04028947,0.03521251,1.14418063,False
+bluetooth,110000,DeepSeek V4 Flash,0.03459872,0.03459872,1.00000000,True
+bluetooth,110000,GPT-4o,0.04312561,0.03459872,1.24645107,False
+bluetooth,110000,Gemini 3.1 Flash Lite,0.04287429,0.03459872,1.23918712,False
+bluetooth,110000,Qwen3.5 Flash,0.04260217,0.03459872,1.23132225,False

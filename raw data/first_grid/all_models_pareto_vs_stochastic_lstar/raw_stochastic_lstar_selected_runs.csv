@@ -1,0 +1,11 @@
+﻿Case,Run Number,Trace,Mean Error
+first_grid,1,76364,0.00393423
+first_grid,2,58675,0.02475281
+first_grid,3,62490,0.04725971
+first_grid,4,113334,0.01274256
+first_grid,5,77697,0.0071098
+first_grid,6,94295,0.00722575
+first_grid,7,51573,0.02046495
+first_grid,8,70895,0.00259571
+first_grid,9,59849,0.01066599
+first_grid,10,87592,0.01429282

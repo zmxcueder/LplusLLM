@@ -1,0 +1,11 @@
+﻿Case,Run Number,Trace,Mean Error
+bluetooth,1,102849,0.07154391
+bluetooth,2,118344,0.04295496
+bluetooth,3,154893,0.05642836
+bluetooth,4,111652,0.05952044
+bluetooth,5,197572,0.0348412
+bluetooth,6,177866,0.0285896
+bluetooth,7,239083,0.0298241
+bluetooth,8,102167,0.03745024
+bluetooth,9,95004,0.04176664
+bluetooth,10,127011,0.03845844
